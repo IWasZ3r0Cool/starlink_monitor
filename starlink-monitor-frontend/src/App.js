@@ -9,20 +9,57 @@ const App = () => {
   const [pingsError, setPingsError] = useState(null);
   const [speedTestsError, setSpeedTestsError] = useState(null);
 
+  // Fetch Ping Data
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/pings`)
-      .then((res) => res.json())
-      .then((data) => setPings(data))
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! Status: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then((data) => {
+        console.log("Ping data fetched from API:", data); // Log the raw response
+        if (data.length === 0) {
+          setPingsError("No ping data available.");
+        } else {
+          setPings(data.map(([id, timestamp, target, success]) => ({
+            id,
+            timestamp,
+            target,
+            success,
+          })));
+        }
+      })
       .catch((err) => {
-        console.error("Failed to fetch pings:", err);
+        console.error("Error fetching ping data:", err);
         setPingsError("Failed to fetch ping data.");
       });
 
+    // Fetch Speed Test Data
     fetch(`${API_BASE_URL}/api/speedtests`)
-      .then((res) => res.json())
-      .then((data) => setSpeedTests(data))
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! Status: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then((data) => {
+        console.log("Speed test data fetched from API:", data); // Log the raw response
+        if (data.length === 0) {
+          setSpeedTestsError("No speed test data available.");
+        } else {
+          setSpeedTests(data.map(([id, timestamp, download, upload, ping]) => ({
+            id,
+            timestamp,
+            download,
+            upload,
+            ping,
+          })));
+        }
+      })
       .catch((err) => {
-        console.error("Failed to fetch speedtests:", err);
+        console.error("Error fetching speed test data:", err);
         setSpeedTestsError("Failed to fetch speed test data.");
       });
   }, []);
@@ -38,9 +75,10 @@ const App = () => {
         <LineChart
           width={600}
           height={300}
-          data={pings.map(([id, timestamp, target, success]) => ({
-            timestamp,
-            success,
+          data={pings.map((item) => ({
+            timestamp: item.timestamp,
+            success: item.success,
+            target: item.target,
           }))}
         >
           <Line type="monotone" dataKey="success" stroke="#8884d8" />
@@ -58,12 +96,14 @@ const App = () => {
         <LineChart
           width={600}
           height={300}
-          data={speedTests.map(([id, timestamp, download, upload]) => ({
-            timestamp,
-            download,
+          data={speedTests.map((item) => ({
+            timestamp: item.timestamp,
+            download: item.download,
+            upload: item.upload,
           }))}
         >
           <Line type="monotone" dataKey="download" stroke="#82ca9d" />
+          <Line type="monotone" dataKey="upload" stroke="#8884d8" />
           <CartesianGrid stroke="#ccc" />
           <XAxis dataKey="timestamp" />
           <YAxis />

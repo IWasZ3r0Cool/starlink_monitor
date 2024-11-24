@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from threading import Thread
 from flask import Flask, jsonify
-
+from flask_cors import CORS
 try:
     import speedtest
 except ImportError:
@@ -14,7 +14,7 @@ except ImportError:
 
 # Configuration Variables
 PING_INTERVAL = 2  # Ping interval in seconds
-SPEEDTEST_INTERVAL = 90  # Speedtest interval in seconds
+SPEEDTEST_INTERVAL = 600  # Speedtest interval in seconds
 PING_TARGETS = ["8.8.8.8", "1.1.1.1", "www.google.com"]
 DATABASE = "starlink_monitor.db"
 FLASK_PORT = int(os.getenv("FLASK_PORT", 8080))
@@ -24,6 +24,7 @@ logging.basicConfig(format="[%(asctime)s] %(levelname)s: %(message)s", level=log
 
 # Flask App
 app = Flask(__name__)
+CORS(app)  # Allow all origins by default
 
 
 # Utility: Create Database Tables if they don't exist
@@ -106,27 +107,33 @@ def ping_monitor():
             time.sleep(PING_INTERVAL)
 
 
-# Run Periodic Speed Tests
 def speedtest_monitor():
     if not speedtest:
         logging.error("Speedtest module is not available. Skipping speedtest monitoring.")
         return
-
+    
     while True:
         try:
             logging.info("Starting speedtest...")
+            
+            # Replace with specific server(s) to limit connection attempts
             st = speedtest.Speedtest()
+            st.get_servers([12345])  # Replace 12345 with a preferred server ID after running speedtest-cli --list
             st.get_best_server()
+            
+            # Run download and optional upload tests
             download = st.download() / 1_000_000  # Convert bits to Mbps
             upload = st.upload() / 1_000_000      # Convert bits to Mbps
             ping = st.results.ping
+            
             logging.info(f"[SPEEDTEST SUCCESS] Download={download:.2f} Mbps, Upload={upload:.2f} Mbps, Ping={ping:.2f} ms")
             log_speedtest_results(download, upload, ping)
         except speedtest.ConfigRetrievalError as e:
             logging.warning(f"[SPEEDTEST FAILURE] Speedtest configuration retrieval error: {e}")
         except Exception as e:
             logging.error(f"[SPEEDTEST FAILURE] Speedtest error: {e}")
-        time.sleep(SPEEDTEST_INTERVAL)
+        
+        time.sleep(SPEEDTEST_INTERVAL)  # Adjust interval as needed
 
 
 # Flask API: Expose Data to Frontend
